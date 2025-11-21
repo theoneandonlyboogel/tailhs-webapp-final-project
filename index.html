@@ -1,517 +1,297 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Robust AI Drug-Target Predictor (Markdown Fix)</title>
-    <!-- Load Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap" rel="stylesheet">
-    <style>
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: #0f172a; /* Slate-900 for a dark lab theme */
-        }
-        .predictor-container {
-            background-color: #1e293b; /* Slate-800 */
-            box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
-            border: 1px solid #334155; /* Slate-700 border */
-        }
-        .input-card {
-            background-color: #334155; /* Slate-700 */
-        }
-        .result-card {
-            background-color: #334155; /* Slate-700 */
-            color: #e2e8f0; /* Light text */
-        }
-        textarea, input {
-            background-color: #475569 !important; /* Slate-600 */
-            border-color: #64748b !important; /* Slate-500 */
-            color: #f8fafc !important; /* White text */
-        }
-        textarea::placeholder {
-            color: #94a3b8 !important; /* Slate-400 placeholder */
-        }
-        .pulse-animation {
-            animation: pulse-ring 1s cubic-bezier(0, 0, 0.2, 1) infinite;
-        }
-        @keyframes pulse-ring {
-            0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
-            70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(34, 197, 94, 0); }
-            100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
-        }
-        /* Custom scrollbar for textareas */
-        textarea::-webkit-scrollbar {
-            width: 8px;
-        }
-        textarea::-webkit-scrollbar-thumb {
-            background-color: #475569;
-            border-radius: 10px;
-        }
-        textarea::-webkit-scrollbar-track {
-            background-color: #1e293b;
-        }
-        /* Ensure list items and paragraphs inside the summary are styled correctly */
-        #mechanism-summary p {
-            margin-bottom: 0.75rem; /* Tailwind mb-3 equivalent */
-        }
-        #mechanism-summary ul {
-            list-style-type: disc;
-            padding-left: 1.5rem;
-            margin-top: 0.5rem;
-        }
-    </style>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>DTI Quick Demo — SMILES ↔ Protein</title>
+  <style>
+    :root{
+      --bg:#0f1724; --card:#0b1220; --accent:#7dd3fc; --muted:#94a3b8;
+      --glass: rgba(255,255,255,0.03);
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+      color: #e6eef6;
+    }
+    html,body{height:100%; margin:0; background:linear-gradient(180deg,#071021 0%, #081426 100%); }
+    .wrap{max-width:960px; margin:28px auto; padding:24px; background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border-radius:12px; box-shadow:0 8px 30px rgba(2,6,23,0.6);}
+    h1{margin:0 0 8px 0; font-size:20px; color:var(--accent);}
+    p.lead{margin:0 0 18px 0; color:var(--muted);}
+    .grid{display:grid; grid-template-columns:1fr 340px; gap:18px;}
+    .card{background:var(--card); padding:14px; border-radius:10px; box-shadow: inset 0 1px 0 rgba(255,255,255,0.02); }
+    label{display:block; font-size:13px; color:var(--muted); margin-bottom:6px;}
+    input[type="text"], input[type="password"], textarea, select {
+      width:100%; padding:10px 12px; border-radius:8px; border:1px solid rgba(255,255,255,0.04);
+      background:var(--glass); color:inherit; resize:vertical; font-size:13px;
+    }
+    textarea{min-height:120px;}
+    .row{display:flex; gap:8px; align-items:center;}
+    button{background:linear-gradient(90deg,var(--accent),#60a5fa); border:none; color:#04263a; padding:10px 14px; border-radius:8px; cursor:pointer; font-weight:600;}
+    button:disabled{opacity:0.6; cursor:default;}
+    .muted{color:var(--muted); font-size:13px;}
+    pre { background:#041026; padding:12px; border-radius:8px; color:#d7eefb; font-size:13px; overflow:auto; max-height:320px;}
+    .result-score{font-size:28px; font-weight:700; color:var(--accent); margin:8px 0;}
+    .hint{font-size:13px; color:var(--muted); margin-top:8px;}
+    .footer{margin-top:14px; color:var(--muted); font-size:13px;}
+    .small-btn{background:transparent; border:1px solid rgba(255,255,255,0.04); color:var(--muted); padding:6px 8px; border-radius:8px; cursor:pointer;}
+    .flex-col{display:flex; flex-direction:column; gap:10px;}
+    @media(max-width:880px){ .grid{grid-template-columns:1fr; } }
+  </style>
 </head>
-<body class="min-h-screen p-4 sm:p-8 flex items-center justify-center relative">
+<body>
+  <div class="wrap">
+    <h1>DTI demo — run a Hugging Face DTI model from a static page</h1>
+    <p class="lead">Paste a SMILES string and a protein sequence (or pick a sample), add your Hugging Face model path and API key, then click <strong>Predict</strong>. For production, host the call on your own server to keep the key private.</p>
 
-    <div class="w-full max-w-5xl predictor-container p-6 md:p-12 rounded-2xl">
-        <header class="mb-10 text-center">
-            <h1 class="text-4xl sm:text-5xl font-extrabold text-cyan-400 mb-2 tracking-tight">
-                AI Drug-Target Prediction (Simplified Parsing)
-            </h1>
-            <p class="text-lg text-slate-400">
-                Uses resilient Markdown output and client-side parsing to avoid JSON schema failures.
-            </p>
-        </header>
+    <div class="grid">
+      <!-- LEFT: inputs -->
+      <div class="card">
+        <div class="flex-col">
+          <div>
+            <label>SMILES (small molecule)</label>
+            <input id="smiles" type="text" placeholder="e.g. CC(=O)Oc1ccccc1C(=O)O (aspirin)" value="CC(=O)Oc1ccccc1C(=O)O" />
+            <div class="hint">You can paste SMILES or supply a molecule string from a sketcher. Keep it small for quick runs.</div>
+          </div>
 
-        <section id="input-section" class="space-y-8">
-            <div class="grid md:grid-cols-2 gap-8">
-                <!-- Drug Input -->
-                <div class="input-card p-6 rounded-xl shadow-2xl">
-                    <label for="smiles-input" class="block text-xl font-semibold text-white mb-3">
-                        Drug Molecule (SMILES Notation)
-                    </label>
-                    <textarea id="smiles-input" rows="3" class="w-full p-4 rounded-lg focus:ring-cyan-500 focus:border-cyan-500 transition duration-150 ease-in-out border" placeholder="> e.g., CC(=O)Oc1ccccc1C(=O)O (Aspirin)"></textarea>
-                    <p class="text-sm text-slate-400 mt-2">Simplified Molecular-Input Line-Entry System.</p>
-                </div>
-
-                <!-- Protein Input -->
-                <div class="input-card p-6 rounded-xl shadow-2xl">
-                    <label for="sequence-input" class="block text-xl font-semibold text-white mb-3">
-                        Protein Target (Amino Acid Sequence)
-                    </label>
-                    <textarea id="sequence-input" rows="3" class="w-full p-4 rounded-lg focus:ring-cyan-500 focus:border-cyan-500 transition duration-150 ease-in-out border" placeholder="> e.g., MRYIVELDDQSKLDELDKYKSEKKLELLD..."></textarea>
-                    <p class="text-sm text-slate-400 mt-2">Target sequence (max ~100 residues for optimal AI context).</p>
-                </div>
+          <div>
+            <label>Protein sequence (AA one-letter)</label>
+            <textarea id="sequence" placeholder="Paste full sequence or a fragment (e.g. kinase domain)...">MTEYKLVVVGAGGVGKSALTIQLIQNHFVDEYDPTIEDSYRKQVVIDGETCLLDILDTAG</textarea>
+            <div style="display:flex; gap:8px; margin-top:8px; align-items:center;">
+              <select id="presetProtein">
+                <option value="">— pick sample protein —</option>
+                <option value="MTEYKLVVVGAGGVGKSALTIQLIQNHFVDEYDPTIEDSYRKQVVIDGETCLLDILDTAG">KRAS (small GTPase fragment)</option>
+                <option value="MFHILTENSDSEVILKAMGQYNINKKFVHADGKTKQTVE">Insulin fragment (toy)</option>
+                <option value="MGDVEKGKKIFIMKCSQCHTVEKGGKHKTGPNLHGLFGRKTGQAPGYSYTAANKNKGIIWG">Cytochrome c fragment</option>
+              </select>
+              <button class="small-btn" id="fillPreset">Fill</button>
             </div>
+          </div>
 
-            <button id="predict-button" class="w-full bg-cyan-600 text-white font-bold py-4 rounded-xl hover:bg-cyan-500 transition duration-300 ease-in-out shadow-lg shadow-cyan-500/30 flex items-center justify-center disabled:opacity-50" onclick="handlePrediction()">
-                <svg id="predict-icon" class="w-6 h-6 mr-3" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path></svg>
-                <span id="button-text" class="text-lg">Run DTI Prediction (via Markdown Output)</span>
-            </button>
-        </section>
+          <div>
+            <label>Hugging Face model path</label>
+            <input id="modelPath" type="text" placeholder="username/model-name (e.g. myuser/DeepDTA-demo)" value="" />
+            <div class="hint">Put the model identifier for the Inference API. Example: <code>username/model-name</code>. You can enable the Inference API on your model in the Hugging Face UI.</div>
+          </div>
 
-        <!-- Notification/Error Modal -->
-        <div id="notification-area" class="fixed top-4 right-4 z-50 space-y-2">
-            <!-- Notifications will be injected here -->
+          <div>
+            <label>Hugging Face API key <span class="muted">(your key — recommended only for quick testing)</span></label>
+            <input id="hfKey" type="password" placeholder="hf_xxx..." />
+            <div class="hint">For demos it's okay to paste the key, but for a public site you'll want a backend to keep this secret.</div>
+          </div>
+
+          <div class="row" style="margin-top:6px;">
+            <button id="predictBtn">Predict</button>
+            <button id="clearBtn" class="small-btn">Clear output</button>
+            <div style="flex:1"></div>
+            <div id="statusText" class="muted">Ready</div>
+          </div>
+
+          <div class="footer">
+            <div><strong>Note:</strong> Different HF DTI models expect inputs in different formats. This UI will attempt several common payload shapes; if your model requires a specific input schema, use the "Raw JSON" box below (advanced) and paste the exact payload.</div>
+          </div>
         </div>
+      </div>
 
-
-        <!-- Result Section -->
-        <section id="result-section" class="mt-12 pt-8 border-t border-slate-700 hidden">
-            <h2 class="text-3xl font-bold text-cyan-400 mb-8 text-center">Prediction Analysis (AI-Generated)</h2>
-
-            <div class="grid lg:grid-cols-3 gap-8">
-                <!-- Binding Score Card -->
-                <div class="lg:col-span-1 result-card p-6 rounded-xl shadow-2xl text-center border-l-4 border-emerald-500">
-                    <p class="text-base font-medium text-slate-300 uppercase tracking-wider">Binding Affinity Score</p>
-                    <div id="binding-score-container" class="mt-4 p-4 rounded-lg transition duration-500">
-                        <span id="binding-score" class="text-7xl font-extrabold score-display text-white">N/A</span>
-                        <p id="likelihood" class="text-2xl mt-3 font-semibold"></p>
-                    </div>
-                </div>
-
-                <!-- Feature Importance Card -->
-                <div class="lg:col-span-2 result-card p-6 rounded-xl shadow-2xl border-l-4 border-fuchsia-500">
-                    <p class="text-xl font-semibold text-white mb-4 flex items-center">
-                        <svg class="w-6 h-6 mr-3 text-fuchsia-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0h10a2 2 0 002-2v-6a2 2 0 00-2-2H9m16-4h-4a2 2 0 00-2-2V3m2 14v-4m-2 2h2"></path></svg>
-                        Top Molecular Features
-                    </p>
-                    <ul id="feature-list" class="space-y-3 text-slate-300 list-disc pl-5">
-                        <li class="italic">Analysis will appear here...</li>
-                    </ul>
-                </div>
+      <!-- RIGHT: results + advanced -->
+      <div class="card">
+        <div class="flex-col">
+          <div>
+            <label>Result (parsed)</label>
+            <div id="parsedResult">
+              <div class="muted">No result yet.</div>
             </div>
+          </div>
 
-            <!-- Mechanism Summary (Changed to div for innerHTML) -->
-            <div class="mt-8 result-card p-6 rounded-xl shadow-2xl border-l-4 border-amber-500">
-                <p class="text-xl font-semibold text-white mb-4 flex items-center">
-                    <svg class="w-6 h-6 mr-3 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
-                    Predicted Mechanism of Action (MoA)
-                </p>
-                <div id="mechanism-summary" class="text-slate-300 leading-relaxed">
-                    <p class="italic">The predicted mechanism will be summarized here based on molecular properties and predicted binding.</p>
-                </div>
-            </div>
+          <div>
+            <label>Raw JSON response</label>
+            <pre id="rawOutput">—</pre>
+          </div>
 
-            <!-- Molecular Visualization Placeholder -->
-            <div class="mt-8 result-card p-6 rounded-xl shadow-2xl border-l-4 border-sky-500">
-                <p class="text-xl font-semibold text-white mb-4 flex items-center">
-                    <svg class="w-6 h-6 mr-3 text-sky-400" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>
-                    Drug 2D Structure (Simulated Visualization)
-                </p>
-                <div id="molecular-vis" class="w-full h-64 flex items-center justify-center bg-slate-800 rounded-lg border border-slate-600 p-4">
-                    <p class="text-slate-400 italic">
-                        Visualization of the drug structure based on SMILES input.
-                    </p>
-                </div>
-            </div>
+          <div>
+            <label>Advanced: tweak raw request JSON</label>
+            <textarea id="rawRequest" placeholder='Optional: override automatic request. Example: {"inputs": {"drug":"SMILES", "protein":"SEQUENCE"}}'></textarea>
+            <div class="hint">If your model needs single string or a concatenation, you can supply exactly what you want here. If empty, the UI constructs a few common shapes.</div>
+          </div>
 
-        </section>
+        </div>
+      </div>
     </div>
 
-    <script type="module">
-        // Global environment variables
-        const apiKey = "";
-        
-        // --- API URL Construction ---
-        const modelName = 'gemini-2.5-flash-preview-09-2025';
-        const apiUrlBase = `https://generativelanguage.googleapis.com/v1beta/models/${modelName}:generateContent`;
-        const apiUrl = `${apiUrlBase}?key=${apiKey}`; // Force key presence
+  </div>
 
-        // --- DOM Elements (omitted for brevity) ---
-        const smilesInput = document.getElementById('smiles-input');
-        const sequenceInput = document.getElementById('sequence-input');
-        const predictButton = document.getElementById('predict-button');
-        const buttonText = document.getElementById('button-text');
-        const predictIcon = document.getElementById('predict-icon');
-        const resultSection = document.getElementById('result-section');
-        const bindingScoreEl = document.getElementById('binding-score');
-        const likelihoodEl = document.getElementById('likelihood');
-        const featureListEl = document.getElementById('feature-list');
-        const mechanismSummaryEl = document.getElementById('mechanism-summary');
-        const molecularVisEl = document.getElementById('molecular-vis');
-        const notificationArea = document.getElementById('notification-area');
+<script>
+  // --- Utility & DOM ---
+  const smilesEl = document.getElementById('smiles');
+  const seqEl = document.getElementById('sequence');
+  const modelEl = document.getElementById('modelPath');
+  const keyEl = document.getElementById('hfKey');
+  const predictBtn = document.getElementById('predictBtn');
+  const rawOutput = document.getElementById('rawOutput');
+  const parsedResult = document.getElementById('parsedResult');
+  const statusText = document.getElementById('statusText');
+  const rawRequest = document.getElementById('rawRequest');
+  const presetProtein = document.getElementById('presetProtein');
+  const fillPreset = document.getElementById('fillPreset');
+  const clearBtn = document.getElementById('clearBtn');
 
-        // --- Utility Functions ---
+  fillPreset.addEventListener('click', ()=> {
+    if(presetProtein.value) seqEl.value = presetProtein.value;
+  });
 
-        /** Converts basic Markdown elements (bold, italic, line breaks) to HTML. */
-        function simpleMarkdownToHtml(markdown) {
-            if (!markdown) return '<p></p>';
-            let html = markdown;
+  clearBtn.addEventListener('click', ()=> {
+    rawOutput.textContent = '—';
+    parsedResult.innerHTML = '<div class="muted">No result yet.</div>';
+  });
 
-            // 1. Bold/Strong: **text** or __text__ to <strong>text</strong>
-            html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-            html = html.replace(/__(.*?)__/g, '<strong>$1</strong>');
+  function setStatus(msg, busy=false) {
+    statusText.textContent = msg;
+    predictBtn.disabled = busy;
+  }
 
-            // 2. Italics/Emphasis: *text* or _text_ to <em>text</em>
-            // This is a bit tricky with lists, but usually safe if bold is done first
-            html = html.replace(/\*([^\*]+)\*/g, '<em>$1</em>');
-            html = html.replace(/_([^_]+)_/g, '<em>$1</em>');
+  // --- Attempt several common request payload shapes that DTI models might accept.
+  // If user supplies rawRequest, use that directly.
+  function buildPayloads(smiles, seq) {
+    const payloads = [];
 
-            // 3. Convert list items starting with * or - (only if not already inside a block)
-            // This is a simple conversion for the MoA block where lists might appear
-            if (html.includes('* ') || html.includes('- ')) {
-                // Split by newline
-                const lines = html.split('\n');
-                let inList = false;
-                let processedHtml = '';
+    // 1) structured object with fields
+    payloads.push({ inputs: { drug: smiles, protein: seq } });
+    // 2) "inputs" as concatenated string (many text-only models expect single string)
+    payloads.push({ inputs: `drug: ${smiles}\nprotein: ${seq}` });
+    // 3) simple concatenation
+    payloads.push({ inputs: `${smiles} </s> ${seq}` });
+    // 4) custom fields common in some repos
+    payloads.push({ inputs: { smiles: smiles, sequence: seq } });
+    // 5) raw text with JSON wrapper
+    payloads.push({ inputs: `SMILES=${smiles}||SEQ=${seq}` });
 
-                lines.forEach(line => {
-                    if (line.match(/^[\*\-]\s/)) { // Is a list item
-                        if (!inList) {
-                            processedHtml += '<ul>';
-                            inList = true;
-                        }
-                        processedHtml += `<li>${line.substring(line.indexOf(' ')).trim()}</li>`;
-                    } else { // Not a list item
-                        if (inList) {
-                            processedHtml += '</ul>';
-                            inList = false;
-                        }
-                        // Handle paragraph breaks outside of list
-                        if (line.trim() !== '') {
-                            processedHtml += `<p class="mb-2">${line.trim()}</p>`;
-                        }
-                    }
-                });
-                if (inList) {
-                    processedHtml += '</ul>';
-                }
-                return processedHtml;
-            } else {
-                // If no complex lists, use simple paragraph/br logic
-                // Convert double newlines to paragraph breaks
-                html = html.replace(/\n\s*\n/g, '</p><p class="mb-2">');
+    return payloads;
+  }
 
-                // Convert single newlines to line breaks (after paragraph replacement)
-                html = html.replace(/\n/g, '<br>');
+  // Try a single request to HF inference API with a given payload.
+  async function callHF(modelPath, hfKey, payload) {
+    const url = `https://api-inference.huggingface.co/models/${modelPath}`;
+    const res = await fetch(url, {
+      method:'POST',
+      headers: {
+        'Authorization': `Bearer ${hfKey}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(payload),
+    });
+    // Some models return 400/500 with text; handle gracefully.
+    const contentType = res.headers.get('content-type') || '';
+    if(!res.ok) {
+      let txt = await res.text();
+      throw new Error(`API error ${res.status}: ${txt}`);
+    }
+    if(contentType.includes('application/json')) {
+      return await res.json();
+    } else {
+      // fallback to plain text
+      return await res.text();
+    }
+  }
 
-                // Wrap in initial paragraph tag
-                return `<p class="mb-2">${html}</p>`;
-            }
+  // Basic parser to extract a numeric-ish score from common responses
+  function extractScore(resp) {
+    // If resp is an object or array, try find numeric fields
+    try {
+      if(Array.isArray(resp)) {
+        // common HF responses: [{label:'POS',score:0.9}] or plain logits
+        for(const item of resp) {
+          if(item && typeof item === 'object') {
+            if('score' in item && typeof item.score === 'number') return item.score;
+            if('logit' in item && typeof item.logit === 'number') return item.logit;
+            if('interaction' in item && typeof item.interaction === 'number') return item.interaction;
+          }
         }
-
-
-        /** Displays a dismissible notification/error message. */
-        function showNotification(message, isError = false) {
-            const id = Date.now();
-            const colorClass = isError ? 'bg-red-500 border-red-700' : 'bg-green-500 border-green-700';
-            const icon = isError ? 
-                '<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>' :
-                '<svg class="w-5 h-5 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>';
-            
-            const notification = document.createElement('div');
-            notification.id = `notif-${id}`;
-            notification.className = `p-4 rounded-lg shadow-xl text-white font-medium flex items-center justify-between transition-all duration-300 transform translate-x-0 ${colorClass} border-2`;
-            notification.innerHTML = `
-                <div class="flex items-center">
-                    ${icon}
-                    <span>${message}</span>
-                </div>
-                <button onclick="dismissNotification('notif-${id}')" class="ml-4 text-white hover:text-gray-200">
-                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path></svg>
-                </button>
-            `;
-            
-            notificationArea.appendChild(notification);
-
-            // Auto-dismiss after 5 seconds
-            setTimeout(() => window.dismissNotification(`notif-${id}`), 5000);
+        // if array of numbers
+        if(resp.every(x=>typeof x === 'number')) {
+          return resp[0];
         }
-
-        /** Dismisses a notification */
-        window.dismissNotification = function(id) {
-            const el = document.getElementById(id);
-            if (el) {
-                el.classList.add('translate-x-full', 'opacity-0');
-                el.addEventListener('transitionend', () => el.remove());
-            }
-        };
-
-        /** Converts a score (0.0-1.0) to a display color and text */
-        function getScoreStyle(score) {
-            if (score >= 0.75) {
-                return { text: "High Affinity", color: "text-emerald-400", bg: "bg-emerald-600/20", pulse: true };
-            } else if (score >= 0.5) {
-                return { text: "Moderate Affinity", color: "text-amber-400", bg: "bg-amber-600/20", pulse: false };
-            } else {
-                return { text: "Low Affinity", color: "text-red-400", bg: "bg-red-600/20", pulse: false };
-            }
+      } else if(typeof resp === 'object') {
+        // find a numeric field
+        for(const k of Object.keys(resp)) {
+          if(typeof resp[k] === 'number') return resp[k];
         }
+        // nested
+        const flat = JSON.stringify(resp);
+        const m = flat.match(/-?\d+(\.\d+)?/);
+        if(m) return parseFloat(m[0]);
+      } else if(typeof resp === 'string') {
+        const m = resp.match(/-?\d+(\.\d+)?/);
+        if(m) return parseFloat(m[0]);
+      }
+    } catch(e){ /* ignore parsing errors */ }
+    return null;
+  }
 
-        /** Simulates a 2D visualization using SVG based on SMILES input */
-        function renderMolecularVis(smiles) {
-            const length = smiles.length;
-            const numAtoms = Math.max(4, Math.min(15, Math.floor(length / 2) + 3));
-            const color = (length % 3 === 0) ? '#60a5fa' : (length % 3 === 1 ? '#f87171' : '#34d399'); // blue, red, green
+  // Main predict handler
+  predictBtn.addEventListener('click', async ()=> {
+    const smiles = (smilesEl.value || '').trim();
+    const seq = (seqEl.value || '').trim();
+    const model = (modelEl.value || '').trim();
+    const key = (keyEl.value || '').trim();
+    if(!smiles) { alert('Please enter a SMILES string.'); return; }
+    if(!seq) { alert('Please enter a protein sequence.'); return; }
+    if(!model) { alert('Please enter the Hugging Face model path (username/model).'); return; }
+    if(!key) { if(!confirm('No API key provided — request will fail. Continue?')) return; }
 
-            const svgContent = `
-                <svg width="100%" height="100%" viewBox="0 0 250 250" xmlns="http://www.w3.org/2000/svg" class="rounded-lg">
-                    <rect width="250" height="250" fill="#1e293b" rx="8"/>
-                    <text x="125" y="30" text-anchor="middle" font-size="14" fill="#94a3b8">Structure Mockup (Atoms: ${numAtoms})</text>
-                    
-                    ${Array.from({ length: numAtoms }).map((_, i) => {
-                        const angle = i * 2 * Math.PI / numAtoms + (length * 0.1);
-                        const radius = 60 + (i % 3) * 10;
-                        const cx = 125 + Math.cos(angle) * radius;
-                        const cy = 125 + Math.sin(angle) * radius;
+    setStatus('Querying model...', true);
+    rawOutput.textContent = '...';
 
-                        // Bond to the next atom (simulating ring/chain)
-                        const nextAngle = (i + 1) * 2 * Math.PI / numAtoms + (length * 0.1);
-                        const nextRadius = 60 + ((i + 1) % 3) * 10;
-                        const nx = 125 + Math.cos(nextAngle) * nextRadius;
-                        const ny = 125 + Math.sin(nextAngle) * nextRadius;
-                        
-                        let bond = '';
-                        if (i < numAtoms - 1 || length % 5 !== 0) { // Simulate open/closed structure
-                            bond = `<line x1="${cx}" y1="${cy}" x2="${nx}" y2="${ny}" stroke="#94a3b8" stroke-width="2" opacity="0.6"/>`;
-                        }
+    try {
+      let payloads = buildPayloads(smiles, seq);
 
-                        // Atom (circle)
-                        const atom = `<circle cx="${cx}" cy="${cy}" r="8" fill="${color}" stroke="#0f172a" stroke-width="1.5" opacity="0.9"/>`;
-
-                        return bond + atom;
-                    }).join('')}
-                </svg>
-            `;
-            molecularVisEl.innerHTML = svgContent;
+      // If user provided raw JSON override, use that instead (single attempt)
+      if(rawRequest.value && rawRequest.value.trim()) {
+        try {
+          const rawPayload = JSON.parse(rawRequest.value);
+          const resp = await callHF(model, key, rawPayload);
+          rawOutput.textContent = JSON.stringify(resp, null, 2);
+          const score = extractScore(resp);
+          parsedResult.innerHTML = score === null ? '<div class="muted">No numeric score parsed.</div>' : `<div class="result-score">${score}</div><div class="muted">Parsed a numeric value from the response.</div>`;
+          setStatus('Done', false);
+          return;
+        } catch(errRaw) {
+          rawOutput.textContent = `Raw JSON request failed: ${errRaw.message}`;
+          setStatus('Done (error)', false);
+          return;
         }
+      }
 
-        // --- API Call and Core Logic (Simplified Markdown Parsing) ---
-
-        async function fetchPrediction(smiles, sequence) {
-            // New user query instructs the model to use a strict Markdown format.
-            const userQuery = `Analyze the potential Drug-Target Interaction (DTI) between the drug molecule (SMILES: ${smiles}) and the protein target (Sequence: ${sequence}).
-Provide the results in the following structure, using only Markdown headings and list items. DO NOT include JSON or other formatting:
-
-### Binding Score
-[Provide a numerical score between 0.000 and 1.000]
-
-### Likelihood
-[State one of: High Affinity, Moderate Affinity, or Low Affinity]
-
-### Top Features
-- Feature 1
-- Feature 2
-- Feature 3
-
-### Mechanism Summary
-[A detailed, chemically and biologically plausible summary of the predicted molecular mechanism, focusing on key residues and groups. Use **bold** and *italics* for emphasis and bullet points for lists.]
-`;
-
-            const payload = {
-                contents: [{ parts: [{ text: userQuery }] }],
-                tools: [{ "google_search": {} }],
-                systemInstruction: {
-                    parts: [{ text: "You are a specialized computational biochemist model. Your response MUST strictly adhere to the provided Markdown format exactly, starting with '### Binding Score'." }]
-                },
-                // Removed generationConfig to avoid strict JSON parsing errors
-            };
-
-            const maxRetries = 3;
-            for (let attempt = 0; attempt < maxRetries; attempt++) {
-                try {
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    // Check for HTTP errors (including 401/403 potential auth issues)
-                    if (!response.ok) {
-                        const errorBody = await response.text();
-                        console.error("API Response Error Body:", errorBody);
-                        
-                        let errorMessage = `API Request failed (Status: ${response.status}).`;
-                        if (response.status === 401 || response.status === 403) {
-                            errorMessage = 'Authentication Error (401/403). The API key setup may be failing.';
-                        }
-                        throw new Error(errorMessage);
-                    }
-
-                    const result = await response.json();
-
-                    const candidate = result.candidates?.[0];
-                    if (candidate && candidate.content?.parts?.[0]?.text) {
-                        const markdownText = candidate.content.parts[0].text;
-                        
-                        // --- Simplified Parsing Logic (RegEx) ---
-                        const prediction = {};
-
-                        // Helper to extract content between Markdown headings
-                        const extract = (heading) => {
-                            // Regex looks for the heading and captures everything until the next heading or end of string
-                            // Using [\s\S]*? to capture all characters including newlines non-greedily
-                            const regex = new RegExp(`### ${heading}\\s*([\\s\\S]*?)(?=\\n\\n###|$)`, 'i');
-                            const match = markdownText.match(regex);
-                            return match ? match[1].trim() : `Error: Could not find ${heading}.`;
-                        };
-
-                        // 1. Extract Score (and clean up to a number)
-                        const scoreText = extract("Binding Score");
-                        // Safely extract the first number found (e.g., 0.875)
-                        const scoreMatch = scoreText.match(/(\d+\.\d+)/);
-                        prediction.bindingScore = parseFloat(scoreMatch ? scoreMatch[0] : 0.0).toFixed(3);
-
-                        // 2. Extract Likelihood
-                        prediction.likelihood = extract("Likelihood");
-
-                        // 3. Extract Features (convert list to array)
-                        const featureText = extract("Top Features");
-                        prediction.featureImportance = featureText.split('\n')
-                            .map(line => line.replace(/^[\*\-]\s*/, '').trim()) // Clean up list markers
-                            .filter(line => line.length > 0);
-
-                        // 4. Extract Mechanism
-                        prediction.mechanismSummary = extract("Mechanism Summary");
-                        
-                        // Basic validation that parsing worked
-                        if (prediction.bindingScore === '0.000' || prediction.featureImportance.length === 0) {
-                             throw new Error("AI returned data in an unexpected format, or parsing failed.");
-                        }
-
-                        return prediction;
-                    }
-                    throw new Error("AI response was empty.");
-
-                } catch (error) {
-                    if (attempt < maxRetries - 1) {
-                        const delay = Math.pow(2, attempt) * 2000;
-                        await new Promise(resolve => setTimeout(resolve, delay));
-                    } else {
-                        showNotification(`Fatal Error: ${error.message}. Prediction failed after all retries.`, true);
-                        throw new Error("Failed to obtain prediction after all retries.");
-                    }
-                }
-            }
+      // Try payloads sequentially until one returns a successful response
+      let lastErr = null;
+      for(const p of payloads) {
+        try {
+          const resp = await callHF(model, key, p);
+          rawOutput.textContent = JSON.stringify(resp, null, 2);
+          const score = extractScore(resp);
+          parsedResult.innerHTML = score === null ? '<div class="muted">No numeric score parsed.</div>' : `<div class="result-score">${score}</div><div class="muted">Parsed a numeric value from the response.</div>`;
+          setStatus('Done', false);
+          return;
+        } catch(err) {
+          lastErr = err;
+          // try next payload
         }
+      }
 
-        // --- Event Handler (Same logic as before, using the new simplified 'prediction' object) ---
+      // all attempts failed
+      throw lastErr || new Error('All payload attempts failed.');
+    } catch (err) {
+      rawOutput.textContent = `Error: ${err.message}`;
+      parsedResult.innerHTML = `<div class="muted">Error — check console/network and ensure the model supports inference and CORS.</div>`;
+      console.error(err);
+      setStatus('Error', false);
+    }
+  });
 
-        window.handlePrediction = async function() {
-            const smiles = smilesInput.value.trim();
-            const sequence = sequenceInput.value.trim().replace(/[^A-Z]/g, ''); 
+  // Helpful tip: warn user if they try to close with an API key entered (optional)
+  window.addEventListener('beforeunload', (e) => {
+    if(keyEl.value) {
+      e.preventDefault();
+      e.returnValue = '';
+    }
+  });
 
-            // Input Validation
-            if (smiles.length < 5 || sequence.length < 10) {
-                showNotification('Please enter realistic SMILES (min 5 chars) and a Protein Sequence (min 10 residues).', true);
-                return;
-            }
-
-            // Set loading state
-            predictButton.disabled = true;
-            buttonText.textContent = 'Analyzing Binding...';
-            predictIcon.classList.add('animate-spin');
-            resultSection.classList.add('hidden');
-            
-            // Clear previous score highlighting
-            document.getElementById('binding-score-container').className = 'mt-4 p-4 rounded-lg transition duration-500';
-            mechanismSummaryEl.innerHTML = '<p class="text-slate-400 italic">Processing analysis...</p>';
-
-
-            try {
-                showNotification('Prediction request sent to AI model. Awaiting analysis...', false);
-                const prediction = await fetchPrediction(smiles, sequence);
-                
-                // 1. Update Score and Likelihood
-                const score = parseFloat(prediction.bindingScore);
-                const style = getScoreStyle(score);
-
-                bindingScoreEl.textContent = prediction.bindingScore;
-                likelihoodEl.textContent = prediction.likelihood;
-                likelihoodEl.className = `text-2xl mt-3 font-semibold ${style.color}`;
-                document.getElementById('binding-score-container').classList.add(style.bg);
-                if (style.pulse) {
-                    document.getElementById('binding-score-container').classList.add('pulse-animation');
-                } else {
-                    document.getElementById('binding-score-container').classList.remove('pulse-animation');
-                }
-                
-                // 2. Update Feature Importance
-                featureListEl.innerHTML = prediction.featureImportance.map(feature => 
-                    `<li><span class="text-cyan-400 font-medium">Feature:</span> ${feature}</li>`
-                ).join('');
-
-                // 3. Update Mechanism Summary (Using Markdown converter)
-                mechanismSummaryEl.innerHTML = simpleMarkdownToHtml(prediction.mechanismSummary);
-
-                // 4. Update Molecular Vis (Simulated)
-                renderMolecularVis(smiles);
-
-                // Show results
-                resultSection.classList.remove('hidden');
-                showNotification('Prediction successful! Results displayed.', false);
-
-            } catch (error) {
-                // Final error already handled by fetchPrediction's notification
-                console.error("Prediction process aborted:", error.message);
-                mechanismSummaryEl.innerHTML = `<p class="text-red-400">Failed to load mechanism summary due to API or parsing error.</p>`;
-            } finally {
-                // Restore button state
-                predictButton.disabled = false;
-                buttonText.textContent = 'Run DTI Prediction (via Markdown Output)';
-                predictIcon.classList.remove('animate-spin');
-            }
-        };
-
-        // Initialize with example data for quick testing
-        window.onload = () => {
-             smilesInput.value = 'CC(=O)Oc1ccccc1C(=O)O'; // Aspirin
-             sequenceInput.value = 'MRYIVELDDQSKLDELDKYKSEKKLELLD';
-             // Run initial rendering
-             renderMolecularVis(smilesInput.value);
-        };
-    </script>
+</script>
 </body>
 </html>
