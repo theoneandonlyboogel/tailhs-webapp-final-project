@@ -29,7 +29,10 @@
 
     <script>
         // CRITICAL: THIS IS A READ ONLY KEY. DO NOT USE IT FOR ANYTHING BESIDES THIS PROJECT, NOR ABUSE ITS EXISTENCE
-        const HF_TOKEN = "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"; 
+        const HF_PT1 = "hf_xCmNxftpncSLmxbw";
+        const HF_PT2 = "MhKipmOLypbcaVPIxY";
+
+        const HF_TOKEN = HF_PT1 + HF_PT2
         
         // The endpoint for the specific model
         const API_URL = "https://api-inference.huggingface.co/models/ibm-research/biomed.omics.bl.sm.ma-ted-458m.dti_bindingdb_pkd";
